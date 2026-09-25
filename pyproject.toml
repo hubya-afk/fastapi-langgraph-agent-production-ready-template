@@ -65,6 +65,10 @@ dev = [
 ]
 test = ["httpx>=0.28.1", "pytest>=8.3.5"]
 
+[[tool.uv.index]]
+url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+default = true
+
 
 [tool.pytest.ini_options]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

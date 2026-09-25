@@ -6,7 +6,7 @@ This document provides essential guidelines for AI agents working on this LangGr
 
 ```bash
 make install              # Install deps (uv sync) + pre-commit hooks
-make dev                  # Dev server with hot reload (port 8000)
+make dev                  # Dev server with hot reload (port 8080)
 make lint                 # ruff check .
 make format               # ruff format .
 make typecheck            # uv run pyright (static type check)

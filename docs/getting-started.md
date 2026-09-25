@@ -22,11 +22,11 @@ cp .env.example .env.development
 # Optional: LANGFUSE_* keys (or set LANGFUSE_TRACING_ENABLED=false)
 
 make install       # installs Python deps + pre-commit hooks
-make docker-up     # starts API (port 8000) + PostgreSQL
+make docker-up     # starts API (port 8080) + PostgreSQL
 make docker-migrate # runs Alembic migrations inside the app container
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs).
+Open [http://localhost:8080/docs](http://localhost:8080/docs).
 
 ## Option B: Local Python
 
@@ -39,7 +39,7 @@ cp .env.example .env.development
 
 make install       # installs deps + pre-commit hooks
 make migrate       # creates tables via Alembic
-make dev           # starts server with hot reload on port 8000
+make dev           # starts server with hot reload on port 8080
 ```
 
 ## Your first API call
@@ -47,7 +47,7 @@ make dev           # starts server with hot reload on port 8000
 ### 1. Register a user
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "password": "Secret123!", "username": "you"}'  # pragma: allowlist secret
 ```
@@ -57,7 +57,7 @@ Returns a `user_id` and a JWT token.
 ### 2. Create a session
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/auth/session \
+curl -X POST http://localhost:8080/api/v1/auth/session \
   -H "Authorization: Bearer <token from step 1>"
 ```
 
@@ -66,7 +66,7 @@ Returns a `session_id` and a session-scoped JWT.
 ### 3. Chat
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/chatbot/chat \
+curl -X POST http://localhost:8080/api/v1/chatbot/chat \
   -H "Authorization: Bearer <session token>" \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "Hello!"}]}'
@@ -75,7 +75,7 @@ curl -X POST http://localhost:8000/api/v1/chatbot/chat \
 Or use the streaming endpoint for real-time responses:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/chatbot/chat/stream \
+curl -X POST http://localhost:8080/api/v1/chatbot/chat/stream \
   -H "Authorization: Bearer <session token>" \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "Hello!"}]}'

@@ -114,7 +114,7 @@ make install
 make docker-up                     # starts API + PostgreSQL
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the interactive API.
+Open [http://localhost:8080/docs](http://localhost:8080/docs) to see the interactive API.
 
 > For local development without Docker see [docs/getting-started.md](docs/getting-started.md).
 

@@ -32,9 +32,9 @@ class LLMRegistry:
     # fallback chain, so it degrades newest -> cheapest.
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "gpt-5.6-luna",
+            "name": "deepseek-flash",
             "llm": ChatOpenAI(
-                model="gpt-5.6-luna",
+                model="deepseek-flash",
                 api_key=_API_KEY,
                 max_completion_tokens=settings.MAX_TOKENS,
                 reasoning={"effort": "medium"},

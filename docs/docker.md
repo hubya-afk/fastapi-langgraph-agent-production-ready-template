@@ -5,7 +5,7 @@
 ```mermaid
 graph TB
     subgraph stack["Full stack (make stack-up)"]
-        app["app\n(FastAPI, port 8000)"]
+        app["app\n(FastAPI, port 8080)"]
         db["db\n(PostgreSQL + pgvector, port 5432)"]
         valkey["valkey\n(Valkey/Redis, port 6379)"]
         prometheus["prometheus\n(port 9090)"]

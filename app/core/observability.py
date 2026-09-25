@@ -1,5 +1,5 @@
 """Observability module for the application."""
-
+import httpx
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
@@ -20,6 +20,7 @@ def langfuse_init():
         host=settings.LANGFUSE_HOST,
         environment=settings.ENVIRONMENT.value,
         debug=settings.DEBUG,
+        base_url=settings.LANGFUSE_HOST
     )
 
     try:
