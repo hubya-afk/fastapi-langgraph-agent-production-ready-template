@@ -32,41 +32,41 @@ class LLMRegistry:
     # fallback chain, so it degrades newest -> cheapest.
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "deepseek-flash",
+            "name": "deepseek-v4-flash",
             "llm": ChatOpenAI(
-                model="deepseek-flash",
+                model="deepseek-v4-flash",
                 api_key=_API_KEY,
                 max_completion_tokens=settings.MAX_TOKENS,
                 reasoning={"effort": "medium"},
             ),
         },
-        {
-            "name": "gpt-5.4",
-            "llm": ChatOpenAI(
-                model="gpt-5.4",
-                api_key=_API_KEY,
-                max_completion_tokens=settings.MAX_TOKENS,
-                reasoning={"effort": "medium"},
-            ),
-        },
-        {
-            "name": "gpt-5.4-mini",
-            "llm": ChatOpenAI(
-                model="gpt-5.4-mini",
-                api_key=_API_KEY,
-                max_completion_tokens=settings.MAX_TOKENS,
-                reasoning={"effort": "low"},
-            ),
-        },
-        {
-            "name": "gpt-5.4-nano",
-            "llm": ChatOpenAI(
-                model="gpt-5.4-nano",
-                api_key=_API_KEY,
-                max_completion_tokens=settings.MAX_TOKENS,
-                reasoning={"effort": "low"},
-            ),
-        },
+        # {
+        #     "name": "gpt-5.4",
+        #     "llm": ChatOpenAI(
+        #         model="gpt-5.4",
+        #         api_key=_API_KEY,
+        #         max_completion_tokens=settings.MAX_TOKENS,
+        #         reasoning={"effort": "medium"},
+        #     ),
+        # },
+        # {
+        #     "name": "gpt-5.4-mini",
+        #     "llm": ChatOpenAI(
+        #         model="gpt-5.4-mini",
+        #         api_key=_API_KEY,
+        #         max_completion_tokens=settings.MAX_TOKENS,
+        #         reasoning={"effort": "low"},
+        #     ),
+        # },
+        # {
+        #     "name": "gpt-5.4-nano",
+        #     "llm": ChatOpenAI(
+        #         model="gpt-5.4-nano",
+        #         api_key=_API_KEY,
+        #         max_completion_tokens=settings.MAX_TOKENS,
+        #         reasoning={"effort": "low"},
+        #     ),
+        # },
     ]
 
     @classmethod

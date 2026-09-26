@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import (
@@ -11,7 +12,11 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+)
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -36,6 +41,10 @@ from app.services.memory import memory_service
 # Load environment variables
 load_dotenv()
 langfuse_init()
+
+# Directory containing the built SPA (frontend/dist). Used only to serve the
+# web UI — the API itself does not depend on it.
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 
 @asynccontextmanager
@@ -153,10 +162,14 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["root"][0])
 async def root(request: Request):
-    """Root endpoint returning basic API information."""
+    """Serve the web UI when built, otherwise return basic API information."""
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+
     logger.info("root_endpoint_called")
     return {
         "name": settings.PROJECT_NAME,
@@ -194,3 +207,10 @@ async def health_check(request: Request) -> JSONResponse:
     status_code = status.HTTP_200_OK if db_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(content=response, status_code=status_code)
+
+
+# Serve the built SPA's static assets. The root route above returns index.html,
+# while the JS/CSS bundles under /assets are served from here. API and /health
+# routes are registered earlier, so they always take precedence over this mount.
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="frontend-assets")

@@ -13,6 +13,7 @@ from fastapi import (
     Request,
 )
 from fastapi.responses import StreamingResponse
+from langfuse._client.observe import observe
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
@@ -34,6 +35,7 @@ agent = LangGraphAgent()
 
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat"][0])
+@observe(as_type="span")
 async def chat(
     request: Request,
     chat_request: ChatRequest,
@@ -76,6 +78,7 @@ async def chat(
 
 @router.post("/chat/stream")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat_stream"][0])
+@observe(as_type="span")
 async def chat_stream(
     request: Request,
     chat_request: ChatRequest,
