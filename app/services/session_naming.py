@@ -60,11 +60,9 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
-            model_name="gpt-5.4-nano",
+            model_name="deepseek-v4-flash",
             response_format=SessionTitle,
             reasoning={"effort": "low"},
-            max_tokens=32,
-            temperature=0.3,
         )
         await database_service.update_session_name(session_id, result.title)
         session_names_generated_total.labels(status="success").inc()

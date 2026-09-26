@@ -1,11 +1,10 @@
 """Long-term memory service using mem0 and pgvector with optional cache layer."""
 
-import base64
 
-import openlit
 from langfuse import observe
 from mem0 import AsyncMemory
 from mem0.embeddings.openai import OpenAIEmbedding
+from mem0.llms.openai import OpenAILLM
 
 from app.core.cache import (
     cache_key,
@@ -15,6 +14,7 @@ from app.core.config import settings
 from app.core.logging import logger
 
 
+@observe(as_type="embedding", name="mem0.embed", capture_input=False, capture_output=False)
 def _embed_without_dimensions(self: OpenAIEmbedding, text: str, memory_action: str | None = None) -> list[float]:
     """Embed text without the ``dimensions`` argument.
 
@@ -22,6 +22,10 @@ def _embed_without_dimensions(self: OpenAIEmbedding, text: str, memory_action: s
     Volcengine Ark embedding models (e.g. ``doubao-embedding-vision``) reject
     that parameter with ``InvalidParameter: dimensions``. Keep the signature
     compatible with mem0's callers, but drop the failing parameter.
+
+    The ``@observe`` decorator surfaces every embedding call as a Langfuse
+    span, restoring part of the mem0 call chain that was lost when the openlit
+    OTLP bridge was removed.
     """
     del memory_action
     text = text.replace("\n", " ")
@@ -33,106 +37,40 @@ def _embed_without_dimensions(self: OpenAIEmbedding, text: str, memory_action: s
 OpenAIEmbedding.embed = _embed_without_dimensions
 
 
-def _init_openlit() -> None:
-    """Route openlit-instrumented spans (mem0 operations) to Langfuse.
+_ORIGINAL_LLM_GENERATE_RESPONSE = OpenAILLM.generate_response
 
-    openlit 1.45 dropped the ``tracer`` argument from ``openlit.init()``; spans
-    are exported over OTLP instead. Langfuse 3.x exposes an OTLP receiver at
-    ``{LANGFUSE_HOST}/api/public/otel/v1/traces`` authenticated with Basic Auth
-    (``public_key:secret_key``).
 
-    Only the mem0 instrumentor is enabled. Everything else is disabled so the
-    main LangChain/LangGraph LLM calls (already traced via the Langfuse callback
-    handler) are not duplicated as standalone OTLP spans.
+@observe(as_type="generation", name="mem0.fact_extraction", capture_input=False, capture_output=False)
+def _generate_response_without_thinking(self: OpenAILLM, messages: list[dict], **kwargs) -> str:
+    """Generate a completion with thinking disabled, traced to Langfuse.
+
+    mem0's OpenAI LLM provider exposes no reasoning controls, so the
+    fact-extraction call inherits the model's default behaviour. On reasoning
+    models (``deepseek-v4-flash`` here) that means a full reasoning pass per
+    memory write, which is pure latency on a structured extraction task.
+
+    Ark does not use OpenAI's ``reasoning_effort``; it honours
+    ``thinking: {"type": "disabled"}``, which takes the reasoning-token count
+    to zero. mem0 forwards arbitrary ``**kwargs`` into the request body
+    (``mem0/llms/base.py`` ``_get_common_params``), so the flag rides along in
+    ``extra_body`` and reaches the API intact.
+
+    The ``@observe`` decorator turns every extraction/comparison call into a
+    Langfuse generation span, restoring the mem0 call chain that was lost when
+    the openlit OTLP bridge was removed.
+
+    Callers that pass their own ``extra_body`` keep it untouched.
     """
-    if not settings.LANGFUSE_TRACING_ENABLED or not settings.LANGFUSE_PUBLIC_KEY:
-        logger.debug("openlit_init_skipped_tracing_disabled")
-        return
+    if settings.LONG_TERM_MEMORY_DISABLE_THINKING:
+        kwargs.setdefault("extra_body", {"thinking": {"type": "disabled"}})
 
-    basic_auth = "Basic " + base64.b64encode(
-        f"{settings.LANGFUSE_PUBLIC_KEY}:{settings.LANGFUSE_SECRET_KEY}".encode("utf-8")
-    ).decode("ascii")
-
-    # All openlit instrumentors except mem0. Kept in sync with openlit's
-    # MODULE_NAME_MAP so only mem0 spans are produced.
-    # disabled_instrumentors = [
-    #     name
-    #     for name in [
-    #         "openai",
-    #         "anthropic",
-    #         "cohere",
-    #         "mistral",
-    #         "bedrock",
-    #         "oci",
-    #         "vertexai",
-    #         "groq",
-    #         "ollama",
-    #         "gpt4all",
-    #         "elevenlabs",
-    #         "vllm",
-    #         "google-ai-studio",
-    #         "azure-ai-inference",
-    #         "langchain",
-    #         "langgraph",
-    #         "llama_index",
-    #         "haystack",
-    #         "chroma",
-    #         "pinecone",
-    #         "qdrant",
-    #         "milvus",
-    #         "transformers",
-    #         "litellm",
-    #         "crewai",
-    #         "ag2",
-    #         "autogen",
-    #         "pyautogen",
-    #         "multion",
-    #         "dynamiq",
-    #         "agno",
-    #         "reka-api",
-    #         "premai",
-    #         "julep",
-    #         "astra",
-    #         "ai21",
-    #         "controlflow",
-    #         "assemblyai",
-    #         "crawl4ai",
-    #         "firecrawl",
-    #         "letta",
-    #         "together",
-    #         "pydo",
-    #         "gradient",
-    #         "openai-agents",
-    #         "pydantic_ai",
-    #         "sarvam",
-    #         "browser-use",
-    #         "mcp",
-    #         "google-adk",
-    #         "smolagents",
-    #         "claude-agent-sdk",
-    #         "aiohttp-client",
-    #         "httpx",
-    #         "requests",
-    #         "urllib",
-    #         "urllib3",
-    #         "fastapi",
-    #         "starlette",
-    #         "psycopg",
-    #         "psycopg-pool",
-    #         "agent-framework",
-    #     ]
-    # ]
-
-    openlit.init(
-        otlp_endpoint=f"{settings.LANGFUSE_HOST}/api/public/otel",
-        otlp_headers={"Authorization": basic_auth},
-        disable_batch=True,
-        # disabled_instrumentors=disabled_instrumentors,
-    )
-    logger.info("openlit_initialized_for_langfuse", host=settings.LANGFUSE_HOST)
+    return _ORIGINAL_LLM_GENERATE_RESPONSE(self, messages=messages, **kwargs)
 
 
-_init_openlit()
+# Ark rejects OpenAI's ``reasoning_effort``; ``thinking`` is the working knob.
+# Applied to the class so every AsyncMemory-built LLM instance inherits it.
+OpenAILLM.generate_response = _generate_response_without_thinking
+
 
 
 class MemoryService:
@@ -142,6 +80,7 @@ class MemoryService:
         """Initialize the memory service."""
         self._memory: AsyncMemory | None = None
 
+    @observe(as_type="span")
     async def _get_memory(self) -> AsyncMemory:
         if self._memory is None:
             self._memory = await AsyncMemory.from_config(
@@ -201,7 +140,7 @@ class MemoryService:
                 return cached
 
             memory = await self._get_memory()
-            results = await memory.search(user_id=str(user_id), query=query)
+            results = await memory.search(user_id=str(user_id), query=query, limit=20)
             result = "\n".join([f"* {r['memory']}" for r in results["results"]])
 
             # Cache successful results

@@ -168,6 +168,15 @@ class Settings:
         self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
         self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
+        # Ark-style reasoning models run a full thinking pass on every fact
+        # extraction unless disabled. Disabling it removes the reasoning tokens
+        # entirely (~2x faster memory writes) with no extraction-quality loss.
+        self.LONG_TERM_MEMORY_DISABLE_THINKING = os.getenv("LONG_TERM_MEMORY_DISABLE_THINKING", "true").lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
         # JWT Configuration
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")

@@ -150,6 +150,7 @@ async def chat_stream(
 
 @router.get("/messages", response_model=ChatResponse)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["messages"][0])
+@observe(as_type="span")
 async def get_session_messages(
     request: Request,
     session: Session = Depends(get_current_session),
