@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.logging import logger
 
 
-@observe(as_type="embedding", name="mem0.embed", capture_input=False, capture_output=False)
+@observe(as_type="embedding", name="mem0.embed", capture_output=False)
 def _embed_without_dimensions(self: OpenAIEmbedding, text: str, memory_action: str | None = None) -> list[float]:
     """Embed text without the ``dimensions`` argument.
 
@@ -40,7 +40,7 @@ OpenAIEmbedding.embed = _embed_without_dimensions
 _ORIGINAL_LLM_GENERATE_RESPONSE = OpenAILLM.generate_response
 
 
-@observe(as_type="generation", name="mem0.fact_extraction", capture_input=False, capture_output=False)
+@observe(as_type="generation", name="mem0.fact_extraction")
 def _generate_response_without_thinking(self: OpenAILLM, messages: list[dict], **kwargs) -> str:
     """Generate a completion with thinking disabled, traced to Langfuse.
 

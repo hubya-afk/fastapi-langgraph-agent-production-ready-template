@@ -5,6 +5,7 @@ streaming chat, message history management, and chat history clearing.
 """
 
 import json
+from collections.abc import Iterable
 
 from fastapi import (
     APIRouter,
@@ -76,9 +77,55 @@ async def chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _sse_chunks_to_text(chunks: Iterable[object]) -> str:
+    """Collapse the streamed SSE frames into the assistant text they carry.
+
+    ``@observe`` wraps every ``StreamingResponse`` body iterator so the span
+    output can be captured, which means the raw SSE frames become the span
+    output. Any payload starting with ``"data:"`` is then misread by the
+    Langfuse SDK's media scanner as a base64 data URI, producing an
+    ``Error parsing base64 data URI`` log line and replacing the output with
+    ``<Upload handling failed for LangfuseMedia of type None>``.
+
+    Returning the decoded assistant text instead keeps the trace output
+    meaningful and keeps it clear of that misparse. Parsing is best-effort:
+    malformed frames are skipped rather than raised, because an exception here
+    would surface to the client at the end of the stream.
+
+    Args:
+        chunks: The SSE frames yielded by the endpoint's event generator.
+
+    Returns:
+        The concatenated assistant content across all non-terminal frames.
+    """
+    parts: list[str] = []
+    try:
+        for chunk in chunks:
+            if isinstance(chunk, bytes):
+                chunk = chunk.decode("utf-8", errors="replace")
+            if not isinstance(chunk, str):
+                continue
+            for line in chunk.splitlines():
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+                try:
+                    payload = json.loads(line[len("data:") :].strip())
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict) or payload.get("done"):
+                    continue
+                content = payload.get("content")
+                if isinstance(content, str):
+                    parts.append(content)
+    except Exception:
+        logger.exception("sse_chunk_transform_failed")
+    return "".join(parts)
+
+
 @router.post("/chat/stream")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat_stream"][0])
-@observe(as_type="span")
+@observe(as_type="span", transform_to_string=_sse_chunks_to_text)
 async def chat_stream(
     request: Request,
     chat_request: ChatRequest,
