@@ -1,5 +1,6 @@
 """Long-term memory service using mem0 and pgvector with optional cache layer."""
 
+from typing import Any
 
 from langfuse import observe
 from mem0 import AsyncMemory
@@ -12,6 +13,7 @@ from app.core.cache import (
 )
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.prompts import FACT_EXTRACTION_PROMPT, UPDATE_MEMORY_PROMPT
 
 
 @observe(as_type="embedding", name="mem0.embed", capture_output=False)
@@ -72,7 +74,6 @@ def _generate_response_without_thinking(self: OpenAILLM, messages: list[dict], *
 OpenAILLM.generate_response = _generate_response_without_thinking
 
 
-
 class MemoryService:
     """Service for managing long-term memory using mem0 and pgvector."""
 
@@ -83,31 +84,54 @@ class MemoryService:
     @observe(as_type="span")
     async def _get_memory(self) -> AsyncMemory:
         if self._memory is None:
-            self._memory = await AsyncMemory.from_config(
-                config_dict={
-                    "vector_store": {
-                        "provider": "pgvector",
-                        "config": {
-                            "collection_name": settings.LONG_TERM_MEMORY_COLLECTION_NAME,
-                            "embedding_model_dims": 2048,
-                            "hnsw": False,
-                            "dbname": settings.POSTGRES_DB,
-                            "user": settings.POSTGRES_USER,
-                            "password": settings.POSTGRES_PASSWORD,
-                            "host": settings.POSTGRES_HOST,
-                            "port": settings.POSTGRES_PORT,
-                        },
+            config_dict: dict[str, Any] = {
+                "vector_store": {
+                    "provider": "pgvector",
+                    "config": {
+                        "collection_name": settings.LONG_TERM_MEMORY_COLLECTION_NAME,
+                        "embedding_model_dims": 2048,
+                        "hnsw": False,
+                        "dbname": settings.POSTGRES_DB,
+                        "user": settings.POSTGRES_USER,
+                        "password": settings.POSTGRES_PASSWORD,
+                        "host": settings.POSTGRES_HOST,
+                        "port": settings.POSTGRES_PORT,
                     },
-                    "llm": {
-                        "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_MODEL},
-                    },
-                    "embedder": {
-                        "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL},
-                    },
-                }
-            )
+                },
+                "llm": {
+                    "provider": "openai",
+                    "config": {"model": settings.LONG_TERM_MEMORY_MODEL},
+                },
+                "embedder": {
+                    "provider": "openai",
+                    "config": {"model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL},
+                },
+            }
+
+            if settings.LONG_TERM_MEMORY_CUSTOM_FACT_EXTRACTION:
+                # Top-level MemoryConfig field, not nested under "llm". mem0 sends
+                # this as the system message and the conversation as `Input:\n...`
+                # in the user message. Its JSON contract ({"facts": [...]}) is
+                # parsed with a bare response["facts"], so a malformed reply is
+                # swallowed and silently yields zero memories.
+                config_dict["custom_fact_extraction_prompt"] = FACT_EXTRACTION_PROMPT
+                logger.info(
+                    "memory_custom_fact_extraction_prompt_enabled",
+                    prompt_chars=len(FACT_EXTRACTION_PROMPT),
+                )
+
+            if settings.LONG_TERM_MEMORY_CUSTOM_UPDATE_MEMORY:
+                # Also top-level. This only replaces the strategy header of
+                # mem0's second pass (the ADD/UPDATE/DELETE/NONE decision);
+                # mem0 appends the memory block, JSON schema and operation rules
+                # itself. The pass runs only when extraction returned facts.
+                config_dict["custom_update_memory_prompt"] = UPDATE_MEMORY_PROMPT
+                logger.info(
+                    "memory_custom_update_memory_prompt_enabled",
+                    prompt_chars=len(UPDATE_MEMORY_PROMPT),
+                )
+
+            self._memory = await AsyncMemory.from_config(config_dict=config_dict)
         return self._memory
 
     async def initialize(self) -> None:

@@ -8,12 +8,24 @@ from app.core.config import settings
 
 _PROMPTS_DIR = os.path.dirname(__file__)
 
-# Read templates once at module load — no file I/O per request
-with open(os.path.join(_PROMPTS_DIR, "system.md"), "r") as _f:
+# Always pass encoding="utf-8": without it Python falls back to the platform
+# locale (GBK/cp936 on Windows), which blows up on any non-ASCII character such
+# as the arrows used in the fact-extraction few-shot examples.
+with open(os.path.join(_PROMPTS_DIR, "system.md"), "r", encoding="utf-8") as _f:
     _SYSTEM_PROMPT_TEMPLATE = _f.read()
 
-with open(os.path.join(_PROMPTS_DIR, "session_title.md"), "r") as _f:
+with open(os.path.join(_PROMPTS_DIR, "session_title.md"), "r", encoding="utf-8") as _f:
     SESSION_TITLE_PROMPT = _f.read()
+
+# Read as-is: never run .format() over this one, the JSON contract in the prompt
+# ({"facts": [...]}) would be interpreted as format placeholders.
+with open(os.path.join(_PROMPTS_DIR, "fact_extraction.md"), "r", encoding="utf-8") as _f:
+    FACT_EXTRACTION_PROMPT = _f.read()
+
+# Only the strategy header: mem0 appends its own memory block, JSON schema and
+# operation rules after this text, so it must not restate the output contract.
+with open(os.path.join(_PROMPTS_DIR, "memory_update.md"), "r", encoding="utf-8") as _f:
+    UPDATE_MEMORY_PROMPT = _f.read()
 
 
 def load_system_prompt(username: Optional[str] = None, **kwargs):

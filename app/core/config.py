@@ -177,6 +177,31 @@ class Settings:
             "t",
             "yes",
         )
+        # When enabled, the engineer-focused prompt in
+        # app/core/prompts/fact_extraction.md replaces mem0's built-in
+        # USER_MEMORY_EXTRACTION_PROMPT / AGENT_MEMORY_EXTRACTION_PROMPT pair.
+        # Setting this to false falls back to mem0's defaults, which also
+        # restores its user-vs-agent prompt auto-switching.
+        self.LONG_TERM_MEMORY_CUSTOM_FACT_EXTRACTION = os.getenv(
+            "LONG_TERM_MEMORY_CUSTOM_FACT_EXTRACTION", "true"
+        ).lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
+        # When enabled, the strategy prompt in app/core/prompts/memory_update.md
+        # replaces mem0's built-in DEFAULT_UPDATE_MEMORY_PROMPT header for the
+        # ADD/UPDATE/DELETE/NONE decision pass. mem0 always appends its own
+        # memory block, JSON schema and operation rules after it.
+        self.LONG_TERM_MEMORY_CUSTOM_UPDATE_MEMORY = os.getenv(
+            "LONG_TERM_MEMORY_CUSTOM_UPDATE_MEMORY", "true"
+        ).lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
         # JWT Configuration
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
